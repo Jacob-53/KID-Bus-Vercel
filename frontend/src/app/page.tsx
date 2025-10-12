@@ -1,9 +1,10 @@
+import { Metadata } from 'next'
 import Link from 'next/link'
+import { headers } from 'next/headers'
+import { createClient } from '@supabase/supabase-js'
 import ThemeToggle from '@/components/ThemeToggle'
 import BusSeatLayout from '@/components/BusSeatLayout'
 import { generateBusSeats } from '@/utils/busSeats'
-import { createClient } from "@supabase/supabase-js";
-import { headers } from "next/headers";
 
 // 상수 분리
 const FALLBACK_METADATA = {
