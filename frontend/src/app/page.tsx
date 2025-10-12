@@ -2,6 +2,68 @@ import Link from 'next/link'
 import ThemeToggle from '@/components/ThemeToggle'
 import BusSeatLayout from '@/components/BusSeatLayout'
 import { generateBusSeats } from '@/utils/busSeats'
+import { createClient } from "@supabase/supabase-js";
+import { headers } from "next/headers";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
+export async function generateMetadata() {
+  const ua = (headers().get("user-agent") || "").toLowerCase();
+
+  // User-Agent로 채널 판별
+  let channel = "default";
+  if (ua.includes("kakao")) channel = "kakao";
+  else if (ua.includes("discord")) channel = "discord";
+
+  // DB 조회
+  const { data, error } = await supabase
+    .from("og_meta")
+    .select("*")
+    .eq("channel", channel)
+    .single();
+
+  // fallback 처리
+  if (error || !data) {
+    const { data: fallback } = await supabase
+      .from("og_meta")
+      .select("*")
+      .eq("channel", "default")
+      .single();
+
+    return {
+      title: fallback?.title || "지식정보타운 통근버스 예매",
+      description: fallback?.description || "기본 설명입니다.",
+      openGraph: {
+        images: [fallback?.image_url || "/default.png"],
+      },
+    };
+  }
+
+  // 정상 데이터 반환
+  return {
+    title: data.title,
+    description: data.description,
+    openGraph: {
+      title: data.title,
+      description: data.description,
+      images: [data.image_url],
+    },
+  };
+}
+
+export default function Page() {
+  return (
+    <main className="p-10 text-center">
+      <h1 className="text-3xl font-bold mb-3">지식정보타운 통근버스 예매</h1>
+      <p className="text-gray-600">
+        지식정보타운 근로자를 위한 통근버스 예약 서비스입니다.
+      </p>
+    </main>
+  );
+}
 
 export default function Home() {
   const demoSeats = generateBusSeats()
