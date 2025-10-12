@@ -5,53 +5,94 @@ import { generateBusSeats } from '@/utils/busSeats'
 import { createClient } from "@supabase/supabase-js";
 import { headers } from "next/headers";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+// 상수 분리
+const FALLBACK_METADATA = {
+  title: '지식정보타운 통근버스 예매',
+  description: '기본 설명입니다.',
+  image: 'https://qqheaiyvahahatzxcmkx.supabase.co/storage/v1/object/public/OG/default.png',
+} as const
 
-export async function generateMetadata() {
-  const ua = (headers().get("user-agent") || "").toLowerCase();
+// Supabase 클라이언트 생성 함수
+function getSupabaseClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+}
+
+// generateMetadata 함수 - 반드시 export 필요
+export async function generateMetadata(): Promise<Metadata> {
+  const supabase = getSupabaseClient()
+  const headersList = await headers()
+  const ua = (headersList.get('user-agent') || '').toLowerCase()
 
   // User-Agent로 채널 판별
-  let channel = "default";
-  if (ua.includes("kakao")) channel = "kakao";
-  else if (ua.includes("discord")) channel = "discord";
+  let channel = 'default'
+  if (ua.includes('kakao')) channel = 'kakao'
+  if (ua.includes('discord')) channel = 'discord'
 
-  // DB 조회
-  const { data, error } = await supabase
-    .from("og_meta")
-    .select("*")
-    .eq("channel", channel)
-    .single();
+  try {
+    // DB 조회
+    const { data, error } = await supabase
+      .from('og_meta')
+      .select('*')
+      .eq('channel', channel)
+      .single()
 
-  // fallback 처리
-  if (error || !data) {
-    const { data: fallback } = await supabase
-      .from("og_meta")
-      .select("*")
-      .eq("channel", "default")
-      .single();
+    // 에러 또는 데이터 없을 때 fallback 처리
+    if (error || !data) {
+      console.warn(`[OG Meta] Channel "${channel}" not found, using fallback`)
 
+      const { data: fallback, error: fallbackError } = await supabase
+        .from('og_meta')
+        .select('*')
+        .eq('channel', 'default')
+        .single()
+
+      if (fallbackError || !fallback) {
+        console.error('[Supabase Fallback Error]', fallbackError)
+        // 최종 하드코딩 fallback
+        return {
+          title: FALLBACK_METADATA.title,
+          description: FALLBACK_METADATA.description,
+          openGraph: {
+            images: [FALLBACK_METADATA.image],
+          },
+        }
+      }
+
+      return {
+        title: fallback.title || FALLBACK_METADATA.title,
+        description: fallback.description || FALLBACK_METADATA.description,
+        openGraph: {
+          title: fallback.title || FALLBACK_METADATA.title,
+          description: fallback.description || FALLBACK_METADATA.description,
+          images: [fallback.image_url || FALLBACK_METADATA.image],
+        },
+      }
+    }
+
+    // 정상 데이터 반환
     return {
-      title: fallback?.title || "지식정보타운 통근버스 예매",
-      description: fallback?.description || "기본 설명입니다.",
-      openGraph: {
-        images: [fallback?.image_url || "/default.png"],
-      },
-    };
-  }
-
-  // 정상 데이터 반환
-  return {
-    title: data.title,
-    description: data.description,
-    openGraph: {
       title: data.title,
       description: data.description,
-      images: [data.image_url],
-    },
-  };
+      openGraph: {
+        title: data.title,
+        description: data.description,
+        images: [data.image_url],
+      },
+    }
+  } catch (err) {
+    console.error('[Critical: Metadata generation failed]', err)
+    // 최종 fallback
+    return {
+      title: FALLBACK_METADATA.title,
+      description: FALLBACK_METADATA.description,
+      openGraph: {
+        images: [FALLBACK_METADATA.image],
+      },
+    }
+  }
 }
 
 
