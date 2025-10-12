@@ -54,16 +54,6 @@ export async function generateMetadata() {
   };
 }
 
-export default function Page() {
-  return (
-    <main className="p-10 text-center">
-      <h1 className="text-3xl font-bold mb-3">지식정보타운 통근버스 예매</h1>
-      <p className="text-gray-600">
-        지식정보타운 근로자를 위한 통근버스 예약 서비스입니다.
-      </p>
-    </main>
-  );
-}
 
 export default function Home() {
   const demoSeats = generateBusSeats()
